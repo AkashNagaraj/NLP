@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 
 # Read the data and form the mappinng to integers
-text = ["webpage to generate any number of random sentence", "tool can be used for a variety of purposes, including"]
+text = ["webpage to generate any number of random sentence", "this tool can be used for a variety of purposes, including"]
 chars = set(" ".join(text))
 int2chars = {i:w for i,w in enumerate(chars)}
 char2int = {c:i for i,c in enumerate(chars)}
@@ -32,7 +32,7 @@ seq_len = maxlen - 1
 batch_size = len(text)
 
 def one_hot_encoding(sequence, dict_size, seq_len, batch_size):
-    features = np.zeros((batch_size, seq_len, dict_size),dtype = np.float32)
+    features = np.zeros((batch_size, seq_len, dict_size)), dtype=np.float32)
     
     for i in range(batch_size):
         for u in range(seq_len):
@@ -78,7 +78,7 @@ class Model(nn.Module):
 # Train the model
 model = Model(input_size=dict_size, output_size=dict_size, hidden_dim = 12, n_layers = 1)
 model.to(device)
-n_epochs = 10
+n_epochs = 100
 lr = 0.001
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr = lr)
@@ -91,5 +91,34 @@ for epoch in range(n_epochs):
     loss.backward()
     optimizer.step()
     
-    print("Epoch : {}/{}.....".format(epoch,n_epochs))
-    print("Loss : {:.4f}".format(loss.item()))
+    if epoch%10==0:
+        print("Epoch : {}/{}.....".format(epoch,n_epochs))
+        print("Loss : {:.4f}".format(loss.item()))
+
+# Character Generation
+
+def predict(model, character):
+    character = np.array([[char2int[c] for c in character]])
+    character = one_hot_encoding(character, dict_size, character.shape[1], 1)
+    character = torch.from_numpy(character)
+
+    out, hidden = model(character)
+    prob = nn.functional.softmax(out[-1], dim=0).data
+    char_id = torch.max(prob, dim=0)[1].item() # Get class with highest prob
+
+    return int2chars[char_id], hidden
+
+
+def sample(model, out_len, start="hey"):
+    model.eval()
+    start = start.lower()
+    chars = [ch for ch in start]
+    size = out_len - len(chars)
+    
+    for ii in range(size):
+        char, h = predict(model, chars)
+        chars.append(char)
+        
+    return " ".join(chars)
+
+print(sample(model,15,"the"))
